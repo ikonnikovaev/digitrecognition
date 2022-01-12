@@ -1,7 +1,7 @@
 # write your code here
 
 import tensorflow as tf
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, GridSearchCV
 from sklearn.metrics import accuracy_score
 from sklearn.preprocessing import Normalizer
 from sklearn.neighbors import KNeighborsClassifier
@@ -15,18 +15,14 @@ def fit_predict_eval(model, features_train, features_test, target_train, target_
     score = accuracy_score(target_test, target_pred)
     print(f'Model: {model}\nAccuracy: {score}\n')
     return score
-''
+
+
 (x_train, y_train), (x_test, y_test) = \
     tf.keras.datasets.mnist.load_data(path="mnist.npz")
 (n, k, l) = x_train.shape
 m = k * l
 x_train = x_train.reshape(n, m)
-'''
-print(f"Classes: {np.unique(y_train)}")
-print(f"Features' shape: {x_train.shape}")
-print(f"Target's shape: {y_train.shape}")
-print(f"min: {x_train.min()}, max: {x_train.max()}")
-'''
+
 features = x_train[:6000]
 targets = y_train[:6000]
 my_x_train, my_x_test, my_y_train, my_y_test =\
@@ -37,46 +33,40 @@ models = [KNeighborsClassifier(),
           LogisticRegression(random_state=40),
           RandomForestClassifier(random_state=40)
 ]
-'''
-best_model = None
-best_score = 0
-for m in models:
-    score = fit_predict_eval(
-        model=m,
-        features_train=my_x_train,
-        features_test=my_x_test,
-        target_train=my_y_train,
-        target_test=my_y_test
-    )
-    if score > best_score:
-        best_model = m
-        best_score = score
-
-n = str(best_model).find('(')
-str_best_model = str(best_model)[:n]
-print(f'Without normalization: {str_best_model} - {round(best_score, 3)}\n')
-'''
 
 normalizer = Normalizer()
 x_train_norm = normalizer.fit_transform(my_x_train)
 x_test_norm = normalizer.transform(my_x_test)
 models_scores = {}
-for m in models:
-    v = fit_predict_eval(
-        model=m,
-        features_train=x_train_norm,
-        features_test=x_test_norm,
-        target_train=my_y_train,
-        target_test=my_y_test
-    )
-    n = str(m).find('(')
-    k = str(m)[:n]
-    models_scores[k] = v
-print(f'The answer to the 1st question: yes\n')
-sorted_scores = sorted(models_scores.items(), key=lambda x: x[1], reverse=True)
-answer2 = f'The answer to the 2nd question: '
-for (k, v) in sorted_scores[:2]:
-    answer2 += f'{k}-{round(v, 3)}, '
-answer2 = answer2[:-2]
-print(answer2)
 
+
+param_grid_knc = dict(n_neighbors=[3, 4],
+                      weights=['uniform', 'distance'],
+                      algorithm=['auto', 'brute'])
+gs_knc = GridSearchCV(estimator=KNeighborsClassifier(),
+                      param_grid=param_grid_knc,
+                      scoring='accuracy', n_jobs=-1)
+gs_knc.fit(x_train_norm, my_y_train)
+y_pred = gs_knc.best_estimator_.predict(x_test_norm)
+score = accuracy_score(my_y_test, y_pred)
+
+print('K-nearest neighbours algorithm')
+#print(gs_knc.best_params_)
+print(f'best estimator: {gs_knc.best_estimator_}')
+print(f'accuracy: {score}')
+
+param_grid_rfc = dict(n_estimators = [300, 500],
+                      max_features = ['auto', 'log2'],
+                      class_weight = ['balanced', 'balanced_subsample'])
+gs_rfc = GridSearchCV(estimator=RandomForestClassifier(random_state=40),
+                      param_grid=param_grid_rfc,
+                      scoring='accuracy', n_jobs=-1)
+gs_rfc.fit(x_train_norm, my_y_train)
+y_pred = gs_rfc.best_estimator_.predict(x_test_norm)
+score = accuracy_score(my_y_test, y_pred)
+
+
+print('Random forest algorithm')
+#print(gs_knc.best_params_)
+print(f'best estimator: {gs_rfc.best_estimator_}')
+print(f'accuracy: {score}')
